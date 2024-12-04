@@ -4,6 +4,7 @@ with open("/Users/yordivankruchten/Downloads/testcases/case1.in", "r") as file:
 
 # Split each line into individual numbers and convert them to integers
 input = [list(map(int, line.split())) for line in lines]
+print(input)
 
 # First line breakdown
 n = input[0][0]
