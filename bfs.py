@@ -1,4 +1,4 @@
-def bfs(graph, start, target):
+def bfs(graph, start, target, max_T):
 
     queue = [[start, None]]
     for queue_item in queue:
@@ -17,7 +17,7 @@ def bfs(graph, start, target):
                 # If the target is found by the algorithm, terminate the loop.
             else:
                 queue.append([neighbor, node])
-                # Add the neighbor to the queue and also save where it came from (node) to later find the path.
+                # Add the neighbor to the queue and also save where it came from (node) to later reconstruct the path.
 
     # The path list contains the path from start to target, according to the bfs algorithm.
     path = [target]
@@ -33,5 +33,7 @@ def bfs(graph, start, target):
 
     if final_path == []:
         return "There exists no path from start to target."
+    elif len(path) > max_T:
+        return f"There is no path within maximum time {max_T}."
     else:
         return final_path
