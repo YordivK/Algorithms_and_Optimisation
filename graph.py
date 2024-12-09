@@ -1,9 +1,7 @@
-from collections import defaultdict
-
 def graph(input):
 
     # Create a dictionary that contains keys being all vertices, and values being their neighbors
-    graph = defaultdict(dict)
+    graph = {}
     for vertex in range(1, input[0][0]+1):
         graph[vertex] = []
     length = len(input)
