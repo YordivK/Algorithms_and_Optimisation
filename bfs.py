@@ -30,7 +30,7 @@ def bfs(graph, start_target_list, max_T, min_D):
             # Add the new layer to the queue only if the new layer generates new nodes.
 
             if len(queue_a) >= max_T:
-                return max_T + 1
+                return max_T + 1, None, None
 
     # Reconstruct the path from the parent map starting from the target node, and reverse.
     path_a = [target_a]
@@ -41,7 +41,7 @@ def bfs(graph, start_target_list, max_T, min_D):
             parent_a = parent_map_a[parent_a]
         path_a.reverse()
     else:
-        return max_T + 1
+        return max_T + 1, None, None
 
 
 
@@ -107,22 +107,42 @@ def bfs(graph, start_target_list, max_T, min_D):
             # Add the new layer to the queue only if the new layer generates new nodes.
 
             if len(queue_b) >= max_T:
-                return max_T + 1
+                return max_T + 1, None, None
 
-    # Reconstruct the path from the parent map starting from the target node, and reverse.
-    path_b = [target_b]
+    # Reconstruct the path for player B, allowing cycles
+    path_b = []
     parent_b = target_b
-    count = step
-    if target_b in parent_map_b:
-        while count > 0:
-            path_b.append(parent_map_b[parent_b][0])
-            parent_b = parent_map_b[parent_b][0]
-            count = count - 1
-            #if count == 0 and path_b[-1] != start_b:
 
-        path_b.reverse()
+    if target_b in parent_map_b:
+        visited = set()  # Keep track of visited nodes to avoid infinite loops
+        queue = [[target_b]]  # Queue for reconstructing paths
+        found_path = None
+
+        while queue:
+            current_path = queue.pop(0)  # Take the first path from the queue
+            current_node = current_path[-1]
+
+            if current_node in visited:
+                continue  # Avoid revisiting nodes
+
+            visited.add(current_node)
+
+            # If we've reached the start node, save the valid path
+            if current_node == start_b:
+                found_path = current_path
+                break
+
+            # Add all parents of the current node to the path
+            for parent in parent_map_b.get(current_node, []):
+                new_path = current_path + [parent]
+                queue.append(new_path)
+
+        if found_path:
+            path_b = found_path[::-1]  # Reverse the path to go from start to target
+        else:
+            return max_T + 1, None, None  # Return failure if no valid path is found
     else:
-        return max_T + 1
+        return max_T + 1, None, None
 
     k = max(len(path_a), len(path_b)) - 1
 
