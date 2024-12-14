@@ -1,33 +1,40 @@
+# main.py
 import time
+from graph import build_graph, restrict_graph, precompute_invalid_positions
+from bfs import bidirectional_socially_distant_paths
 
-# Record the start time
 start_time = time.time()
 
-from graph import graph
-from bfs import bfs
+# Read input from a file
+input_file = "/Users/flipv/OneDrive/Documents/ALGOPT/testcases/grid25-0.in"
+with open(input_file, "r") as f:
+    lines = f.readlines()
+input_data = [list(map(int, line.split())) for line in lines]
 
-with open("/Users/yordivankruchten/Downloads/testcases/grid10-5.in", "r") as file:
-    lines = file.readlines()
-input = [list(map(int, line.split())) for line in lines]
+# Extract parameters
+n, m, T, D = input_data[0]
+sa, ta, sb, tb = input_data[1]
 
-start_target_list = input[1]
-max_T = input[0][2]
-min_D = input[0][3]
+# Build graph
+network = build_graph(input_data)
 
-network = graph(input)
+# Restrict graph to relevant nodes
+relevant_graph = restrict_graph(network, [sa, sb, ta, tb], T)
 
-k, path_a, path_b = bfs(network, start_target_list, max_T, min_D)
+# Precompute invalid positions
+invalid_positions = precompute_invalid_positions(relevant_graph, D)
 
-print(k)
-if path_a and path_b != None:
-    print(*path_a)
-    print(*path_b)
+# Run the bidirectional BFS algorithm
 
-# Record the end time
+k, path_a, path_b = bidirectional_socially_distant_paths(
+    relevant_graph, (sa, ta, sb, tb), T, D, invalid_positions
+)
 end_time = time.time()
 
-# Calculate the duration
-duration = end_time - start_time
+# Output results
+print(k)
+if path_a and path_b:
+    print(" ".join(map(str, path_a)))
+    print(" ".join(map(str, path_b)))
+print(f"{end_time - start_time:.2f} seconds")
 
-# Print the time taken
-print(f"{duration:.2f} seconds")
