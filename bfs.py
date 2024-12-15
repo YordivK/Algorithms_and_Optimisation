@@ -19,27 +19,33 @@ def bidirectional_socially_distant_paths(network, start_target_list, max_T, min_
         if not queue:
             return None
 
-        current_pa, current_pb, current_time = queue.popleft()
+        best_meeting_state = None
+        best_total_time = float('inf')
 
-        if (current_pa, current_pb) in other_visited:
-            total_time = current_time + other_visited[(current_pa, current_pb)]
-            return (current_pa, current_pb, total_time)
+        for _ in range(len(queue)):  # Process the current level of the queue
+            current_pa, current_pb, current_time = queue.popleft()
 
-        if current_time >= max_T:
-            return None
+            if (current_pa, current_pb) in other_visited:
+                total_time = current_time + other_visited[(current_pa, current_pb)]
+                if total_time < best_total_time:
+                    best_total_time = total_time
+                    best_meeting_state = (current_pa, current_pb, total_time)
 
-        for pa_next in network[current_pa]:  # Only consider moving actions
-            for pb_next in network[current_pb]:
-                if pa_next == pb_next or pb_next in current_invalid_positions.get(pa_next, set()):
-                    continue
+            if current_time >= max_T:
+                continue
 
-                new_state = (pa_next, pb_next)
-                if new_state not in visited or visited[new_state] > current_time + 1:
-                    visited[new_state] = current_time + 1
-                    parent[new_state] = (current_pa, current_pb)
-                    queue.append((pa_next, pb_next, current_time + 1))
+            for pa_next in network[current_pa]:  # Only consider moving actions
+                for pb_next in network[current_pb]:
+                    if pa_next == pb_next or pb_next in current_invalid_positions.get(pa_next, set()):
+                        continue
 
-        return None
+                    new_state = (pa_next, pb_next)
+                    if new_state not in visited or visited[new_state] > current_time + 1:
+                        visited[new_state] = current_time + 1
+                        parent[new_state] = (current_pa, current_pb)
+                        queue.append((pa_next, pb_next, current_time + 1))
+
+        return best_meeting_state
 
     while forward_queue or backward_queue:
         if forward_queue:
@@ -60,6 +66,7 @@ def bidirectional_socially_distant_paths(network, start_target_list, max_T, min_
 
     return max_T + 1, None, None
 
+
 def reconstruct_bidirectional_path(sa, sb, ta, tb, forward_parent, backward_parent, meeting_state):
     """
     Reconstructs the paths for two players from start to target through the meeting state.
@@ -79,7 +86,7 @@ def reconstruct_bidirectional_path(sa, sb, ta, tb, forward_parent, backward_pare
     """
     pa_meet, pb_meet, meeting_time = meeting_state
 
-    # Reconstruct the forward path
+    # Forward path reconstruction
     path_a_forward, path_b_forward = [], []
     current_state = (pa_meet, pb_meet)
     while current_state in forward_parent:
@@ -91,7 +98,7 @@ def reconstruct_bidirectional_path(sa, sb, ta, tb, forward_parent, backward_pare
     path_a_forward.reverse()
     path_b_forward.reverse()
 
-    # Reconstruct the backward path
+    # Backward path reconstruction
     path_a_backward, path_b_backward = [], []
     current_state = (pa_meet, pb_meet)
     while current_state in backward_parent:
@@ -103,15 +110,16 @@ def reconstruct_bidirectional_path(sa, sb, ta, tb, forward_parent, backward_pare
     path_a_backward.append(ta)
     path_b_backward.append(tb)
 
-    # Combine forward and backward paths
+    # Combine paths
     full_path_a = path_a_forward + [pa_meet] + path_a_backward
     full_path_b = path_b_forward + [pb_meet] + path_b_backward
 
-    # Synchronize paths by ensuring both have the same length
-    if len(full_path_a) > len(full_path_b):
-        full_path_b += [full_path_b[-1]] * (len(full_path_a) - len(full_path_b))
-    elif len(full_path_b) > len(full_path_a):
-        full_path_a += [full_path_a[-1]] * (len(full_path_b) - len(full_path_a))
+    # Synchronize lengths
+    max_length = max(len(full_path_a), len(full_path_b))
+    while len(full_path_a) < max_length:
+        full_path_a.append(full_path_a[-1])
+    while len(full_path_b) < max_length:
+        full_path_b.append(full_path_b[-1])
 
     # Remove redundant trailing nodes
     while len(full_path_a) > 1 and full_path_a[-1] == full_path_a[-2]:

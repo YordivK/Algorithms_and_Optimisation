@@ -6,7 +6,7 @@ start_time = time.time()
 
 
 # Read input from a file
-input_file = "/Users/flipv/OneDrive/Documents/ALGOPT/testcases/grid25-0.in"
+input_file = "/Users/flipv/OneDrive/Documents/ALGOPT/testcases/grid50-6.in"
 with open(input_file, "r") as f:
     lines = f.readlines()
 input_data = [list(map(int, line.split())) for line in lines]
