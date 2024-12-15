@@ -1,139 +1,122 @@
-# bfs.py
 from collections import deque
 
 def bidirectional_socially_distant_paths(network, start_target_list, max_T, min_D, invalid_positions):
-    """
-    Find socially distant paths using bidirectional BFS.
-
-    Args:
-        network (dict): The adjacency list of the graph.
-        start_target_list (tuple): Start and target nodes (sa, ta, sb, tb).
-        max_T (int): Maximum allowed time.
-        min_D (int): Minimum distance between players.
-        invalid_positions (dict): Precomputed invalid positions for each node.
-
-    Returns:
-        tuple: (k, path_a, path_b) where k is the time, path_a and path_b are the paths.
-    """
     sa, ta, sb, tb = start_target_list
 
     # Forward and backward queues
-    forward_q = deque([(sa, sb, 0)])
-    backward_q = deque([(ta, tb, 0)])
+    forward_queue = deque([(sa, sb, 0)])  # (position_a, position_b, time)
+    backward_queue = deque([(ta, tb, 0)])  # (position_a, position_b, time)
 
-    # Visited sets for forward and backward
-    forward_visited = set([(sa, sb, 0)])
-    backward_visited = set([(ta, tb, 0)])
+    # Visited states with distances
+    forward_visited = {(sa, sb): 0}
+    backward_visited = {(ta, tb): 0}
 
-    # Parent dictionaries for path reconstruction
+    # Parent dictionaries for reconstructing paths
     forward_parent = {}
     backward_parent = {}
 
-    meeting_state = None
+    def expand(queue, visited, parent, other_visited, current_invalid_positions):
+        if not queue:
+            return None
 
-    while forward_q or backward_q:
-        # Expand forward queue
-        if forward_q:
-            pa, pb, t = forward_q.popleft()
-            if (pa, pb, t) in backward_visited:
-                meeting_state = (pa, pb, t)
-                break
+        current_pa, current_pb, current_time = queue.popleft()
 
-            if t < max_T:
-                for pa_next in [pa] + network[pa]:
-                    for pb_next in [pb] + network[pb]:
-                        # Ensure the players are not at the same node at the same time
-                        if pa_next == pb_next:
-                            continue
-                        # Skip if the move violates the invalid positions
-                        if pb_next in invalid_positions[pa_next]:
-                            continue
-                        if (pa_next, pb_next, t + 1) not in forward_visited:
-                            forward_visited.add((pa_next, pb_next, t + 1))
-                            forward_parent[(pa_next, pb_next, t + 1)] = (pa, pb, t)
-                            forward_q.append((pa_next, pb_next, t + 1))
+        if (current_pa, current_pb) in other_visited:
+            total_time = current_time + other_visited[(current_pa, current_pb)]
+            return (current_pa, current_pb, total_time)
 
-        # Expand backward queue
-        if backward_q:
-            pa, pb, t = backward_q.popleft()
-            if (pa, pb, t) in forward_visited:
-                meeting_state = (pa, pb, t)
-                break
+        if current_time >= max_T:
+            return None
 
-            if t < max_T:
-                for pa_next in [pa] + network[pa]:
-                    for pb_next in [pb] + network[pb]:
-                        # Ensure the players are not at the same node at the same time
-                        if pa_next == pb_next:
-                            continue
-                        # Skip if the move violates the invalid positions
-                        if pb_next in invalid_positions[pa_next]:
-                            continue
-                        if (pa_next, pb_next, t + 1) not in backward_visited:
-                            backward_visited.add((pa_next, pb_next, t + 1))
-                            backward_parent[(pa_next, pb_next, t + 1)] = (pa, pb, t)
-                            backward_q.append((pa_next, pb_next, t + 1))
+        for pa_next in network[current_pa]:  # Only consider moving actions
+            for pb_next in network[current_pb]:
+                if pa_next == pb_next or pb_next in current_invalid_positions.get(pa_next, set()):
+                    continue
 
-    if meeting_state:
-        return reconstruct_bidirectional_path(sa, sb, ta, tb, forward_parent, backward_parent, meeting_state)
+                new_state = (pa_next, pb_next)
+                if new_state not in visited or visited[new_state] > current_time + 1:
+                    visited[new_state] = current_time + 1
+                    parent[new_state] = (current_pa, current_pb)
+                    queue.append((pa_next, pb_next, current_time + 1))
+
+        return None
+
+    while forward_queue or backward_queue:
+        if forward_queue:
+            meeting_state = expand(
+                forward_queue, forward_visited, forward_parent,
+                backward_visited, invalid_positions
+            )
+            if meeting_state:
+                return reconstruct_bidirectional_path(sa, sb, ta, tb, forward_parent, backward_parent, meeting_state)
+
+        if backward_queue:
+            meeting_state = expand(
+                backward_queue, backward_visited, backward_parent,
+                forward_visited, invalid_positions
+            )
+            if meeting_state:
+                return reconstruct_bidirectional_path(sa, sb, ta, tb, forward_parent, backward_parent, meeting_state)
 
     return max_T + 1, None, None
 
 def reconstruct_bidirectional_path(sa, sb, ta, tb, forward_parent, backward_parent, meeting_state):
     """
-    Reconstruct the bidirectional paths for two players, avoiding redundant "double values."
+    Reconstructs the paths for two players from start to target through the meeting state.
 
     Args:
-        sa, sb (int): Starting nodes for player A and B.
-        ta, tb (int): Target nodes for player A and B.
-        forward_parent (dict): Parent mapping from forward BFS.
-        backward_parent (dict): Parent mapping from backward BFS.
-        meeting_state (tuple): The state where forward and backward searches met.
+        sa, sb: Starting nodes for player A and player B.
+        ta, tb: Target nodes for player A and player B.
+        forward_parent: Parent mapping from forward BFS.
+        backward_parent: Parent mapping from backward BFS.
+        meeting_state: The meeting state (pa_meet, pb_meet, meeting_time).
 
     Returns:
-        tuple: (k, path_a, path_b) where k is the meeting time, path_a and path_b are the paths.
+        Tuple (k, path_a, path_b):
+            - k is the total time to reach the target.
+            - path_a is the list of nodes for player A.
+            - path_b is the list of nodes for player B.
     """
-    pa_meet, pb_meet, k = meeting_state
+    pa_meet, pb_meet, meeting_time = meeting_state
 
-    # Reconstruct path for player A and B from forward BFS
-    forward_path_a = []
-    forward_path_b = []
-    current_state = (pa_meet, pb_meet, k)
+    # Reconstruct the forward path
+    path_a_forward, path_b_forward = [], []
+    current_state = (pa_meet, pb_meet)
     while current_state in forward_parent:
-        pa, pb, t = current_state
-        forward_path_a.append(pa)
-        forward_path_b.append(pb)
-        current_state = forward_parent[current_state]
-    forward_path_a.append(sa)
-    forward_path_b.append(sb)
-    forward_path_a.reverse()
-    forward_path_b.reverse()
+        pa, pb = forward_parent[current_state]
+        path_a_forward.append(pa)
+        path_b_forward.append(pb)
+        current_state = (pa, pb)
 
-    # Reconstruct path for player A and B from backward BFS
-    backward_path_a = []
-    backward_path_b = []
-    current_state = (pa_meet, pb_meet, k)
+    path_a_forward.reverse()
+    path_b_forward.reverse()
+
+    # Reconstruct the backward path
+    path_a_backward, path_b_backward = [], []
+    current_state = (pa_meet, pb_meet)
     while current_state in backward_parent:
-        pa, pb, t = backward_parent[current_state]
-        backward_path_a.append(pa)
-        backward_path_b.append(pb)
-        current_state = backward_parent[current_state]
-    backward_path_a.append(ta)
-    backward_path_b.append(tb)
+        pa, pb = backward_parent[current_state]
+        path_a_backward.append(pa)
+        path_b_backward.append(pb)
+        current_state = (pa, pb)
+
+    path_a_backward.append(ta)
+    path_b_backward.append(tb)
 
     # Combine forward and backward paths
-    path_a = forward_path_a + backward_path_a
-    path_b = forward_path_b + backward_path_b
+    full_path_a = path_a_forward + [pa_meet] + path_a_backward
+    full_path_b = path_b_forward + [pb_meet] + path_b_backward
 
-    # Filter out redundant double values
-    filtered_path_a = [path_a[0]]
-    filtered_path_b = [path_b[0]]
-    for i in range(1, len(path_a)):
-        if not (path_a[i] == path_a[i - 1] and path_b[i] == path_b[i - 1]):
-            filtered_path_a.append(path_a[i])
-            filtered_path_b.append(path_b[i])
+    # Synchronize paths by ensuring both have the same length
+    if len(full_path_a) > len(full_path_b):
+        full_path_b += [full_path_b[-1]] * (len(full_path_a) - len(full_path_b))
+    elif len(full_path_b) > len(full_path_a):
+        full_path_a += [full_path_a[-1]] * (len(full_path_b) - len(full_path_a))
 
-    # The length of the filtered paths determines the meeting time
-    meeting_time = len(filtered_path_a) - 1
+    # Remove redundant trailing nodes
+    while len(full_path_a) > 1 and full_path_a[-1] == full_path_a[-2]:
+        full_path_a.pop()
+    while len(full_path_b) > 1 and full_path_b[-1] == full_path_b[-2]:
+        full_path_b.pop()
 
-    return meeting_time, filtered_path_a, filtered_path_b
+    return meeting_time, full_path_a, full_path_b
